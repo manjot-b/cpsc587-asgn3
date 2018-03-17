@@ -71,46 +71,42 @@ void Engine::initScene()
 	staticParticle.position = glm::vec3(0,0.9f,0);
 	staticParticle.velocity = glm::vec3(0,0.0,0);
 	staticParticle.netForce = glm::vec3(0,0,0);
-	staticParticle.model = glm::mat4(1.0f);
 
 	struct Particle dynamicParticle;
 	dynamicParticle.mass = 0.01;
 	dynamicParticle.weight = 1 / dynamicParticle.mass;
-	dynamicParticle.position = glm::vec3(0, -0.5f, 0);
+	dynamicParticle.position = glm::vec3(0, -0.99f, 0);
 	dynamicParticle.velocity = glm::vec3(0,0,0);
 	dynamicParticle.netForce = glm::vec3(0,0,0);
-	dynamicParticle.model = glm::mat4(1.0f);
 
 	struct Spring spring;
 	spring.restLength = 0.5;
 	spring.p1 = 0;
 	spring.p2 = 1;
 	spring.stiffness = 0.5;
-	spring.dampening = 0.8 * 2 * sqrt(dynamicParticle.mass * spring.stiffness);
+	spring.dampening = 1.0 * 2 * sqrt(dynamicParticle.mass * spring.stiffness);
 
+	particles.clear();		// clear previous incase we are resetting scene
 	particles.push_back(staticParticle);
 	particles.push_back(dynamicParticle);
+	
+	springs.clear();		// clear previous
 	springs.push_back(spring);
 
 
 	shader = make_shared<Shader>("rsc/vertex.glsl", "rsc/fragment.glsl");
 	shader->link();
-	// vertexArrays.clear();
-	int componentsPerAttrib = 3;
-	for (auto& particle : particles)
-	{
-		float * data = glm::value_ptr(particle.position);
-		particle.vao = make_shared<VertexArray>(&componentsPerAttrib, 1, data, 3);
-	}
-	
-	// glm::mat4 view = glm::lookAt(
-	// 		glm::vec3(0.05f, 0.3f, 0.8f),	// camera position
-	// 		glm::vec3(0.05f, 0.2f, 0),		// where camera is lookin
-	// 		glm::vec3(0, 1, 0)				// up vector
-    //         );
-    // glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-    // Camera camera = Camera(view, projection);
 
+	particlePositions.clear();
+	for (const auto& particle : particles)
+	{
+		for (uint i = 0; i < 3; i++)
+			particlePositions.push_back(particle.position[i]);
+	}
+
+	int componentsPerAttrib = 3;	
+	vertexArray = make_shared<VertexArray>(
+		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
 }
 
 int Engine::run()
@@ -118,11 +114,10 @@ int Engine::run()
 	if (!windowInitialized_)
 		return -1;
 
-	float time = 0;
 	while (!glfwWindowShouldClose(window_.get()))
 	{
 		processInput();
-		time = update(time);
+		update();
 		render();
 	}
 
@@ -136,9 +131,14 @@ void Engine::processInput()
 	{
 		glfwSetWindowShouldClose(window_.get(), true);
 	}
+
+	if (glfwGetKey(window_.get(), GLFW_KEY_R) == GLFW_PRESS)
+	{
+		initScene();
+	}
 }
 
-float Engine::update(float time)
+void Engine::update()
 {
 
 	for (uint i = 0; i < updatesPerFrame; i++)
@@ -157,18 +157,22 @@ float Engine::update(float time)
 			if (particle.mass > 0)
 			{
 				particle.velocity += (particle.netForce * particle.weight * deltaT);
-				glm::vec3 translation = particle.position;
 				particle.position += particle.velocity * deltaT;
-				translation = particle.position - translation;
-				particle.model = glm::translate(particle.model, translation);
 			}
 
 			particle.netForce = glm::vec3(0, 0, 0);
 		}
-
-		time += deltaT;
 	}
-	return time;
+
+	// update final particle positions
+	for (uint i = 0; i < particles.size(); i++)
+	{
+		for (uint j = 0; j < 3; j++)
+			particlePositions[i*3 + j] = particles[i].position[j];
+	}
+	vertexArray->updateBuffer(particlePositions.data(), particlePositions.size());
+
+	
 }
 
 glm::vec3 Engine::calcVelocity(const vector<glm::vec3>& points, uint time, float deltaT)
@@ -209,13 +213,18 @@ void Engine::render()
 	glPointSize(15);
 	shader->use();
 
-	for (auto& particle : particles)
-	{
-		particle.vao->use();
-		shader->setUniformMatrix4fv("model", particle.model);
-		glDrawArrays(GL_POINTS, 0, 1);
-		particle.vao->unuse();
-	}
+	// for (auto& particle : particles)
+	// {
+	// 	particle.vao->use();
+	// 	shader->setUniformMatrix4fv("model", particle.model);
+	// 	glDrawArrays(GL_POINTS, 0, 1);
+	// 	particle.vao->unuse();
+	// }
+
+	vertexArray->use();
+	glDrawArrays(GL_POINTS, 0, particles.size());
+	glDrawArrays(GL_LINE_STRIP, 0, particles.size());
+	vertexArray->unuse();
 
 	shader->unuse();
 	glfwSwapBuffers(window_.get());

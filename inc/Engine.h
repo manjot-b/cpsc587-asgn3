@@ -30,9 +30,11 @@ class Engine
         bool windowInitialized_;
         // std::vector< std::shared_ptr<VertexArray> > vertexArrays;
         std::shared_ptr<Shader> shader;
+        std::shared_ptr<VertexArray> vertexArray;
  
         std::vector<Spring> springs;
         std::vector<Particle> particles;
+        std::vector<float> particlePositions;
 
         float deltaT = 0.001;                               // in miliseconds
         uint updatesPerFrame = (1.0f / 60) / deltaT;
@@ -41,7 +43,7 @@ class Engine
         bool initWindow();
         void initScene();
         void processInput();
-        float update(float time);
+        void update();
         void render();        
 
         glm::vec3 calcVelocity(const std::vector<glm::vec3>& points, uint time, float deltaT);

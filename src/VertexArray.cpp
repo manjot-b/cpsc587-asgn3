@@ -3,7 +3,8 @@
 
 using namespace std;
 
-VertexArray::VertexArray(const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize)
+VertexArray::VertexArray(
+    const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize, GLenum drawUsage)
 {
     
     glGenBuffers(1, &vbo); // gen buffer and store id in VBO
@@ -11,7 +12,7 @@ VertexArray::VertexArray(const int componentsPerAttribute[], size_t vertCompSize
     
     glBindVertexArray(id);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER,  buffSize * sizeof(float), buffer, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER,  buffSize * sizeof(float), buffer, drawUsage);
 
     const int totalComponents = sumArray(0, vertCompSize, componentsPerAttribute);
     const int stride = totalComponents * sizeof(float);
@@ -57,3 +58,25 @@ void VertexArray::unuse() const
 {
     glBindVertexArray(0);
 }
+
+void VertexArray::updateBuffer(const float buffer[], size_t buffSize)
+{
+    glBindVertexArray(id);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, buffSize * sizeof(float), buffer);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

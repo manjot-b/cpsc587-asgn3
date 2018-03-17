@@ -12,8 +12,6 @@ struct Particle
     glm::vec3 position;
     glm::vec3 velocity;
     glm::vec3 netForce;
-    glm::mat4 model;
-    std::shared_ptr<VertexArray> vao;
 };
 
 struct Spring

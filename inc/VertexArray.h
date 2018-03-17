@@ -21,13 +21,14 @@ class VertexArray
                 buffSize:           The size of the buffer
         */
         VertexArray() {};
-        VertexArray(const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize);
+        VertexArray(
+            const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize, GLenum drawUsage = GL_STATIC_DRAW);
         ~VertexArray();
         GLuint getID() const { return id; };
 
         void use() const;
         void unuse() const;
-
+        void updateBuffer(const float buffer[], size_t buffSize);
     private:
         GLuint id;
         GLuint vbo;
