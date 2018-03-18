@@ -27,6 +27,8 @@ Engine::Engine(int argc, const char *argv[])
 	}
 	windowInitialized_ = true;
 	initScene();
+	//initSingleSpringScene();
+	// initMultipleSpringsScene();
 }
 
 bool Engine::initWindow()
@@ -64,10 +66,10 @@ bool Engine::initWindow()
 	return true; // if we made it here then success
 }
 
-void Engine::initScene()
+void Engine::initSingleSpringScene()
 {
 	struct Particle staticParticle;
-	staticParticle.mass = 0;
+	staticParticle.mass = 0;			// makes this a static particle
 	staticParticle.position = glm::vec3(0,0.9f,0);
 	staticParticle.velocity = glm::vec3(0,0.0,0);
 	staticParticle.netForce = glm::vec3(0,0,0);
@@ -109,6 +111,57 @@ void Engine::initScene()
 		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
 }
 
+void Engine::initMultipleSpringsScene()
+{
+	struct Particle staticParticle;
+	staticParticle.mass = 0;			// makes this a static particle
+	staticParticle.position = glm::vec3(0,0.9f,0);
+	staticParticle.velocity = glm::vec3(0,0.0,0);
+	staticParticle.netForce = glm::vec3(0,0,0);
+
+	springs.clear();		// clear previous
+	particles.clear();		// clear previous incase we are resetting scene
+	particles.push_back(staticParticle);
+
+	uint dynamicParticlesCount = 10;
+	for (uint i = 0; i < dynamicParticlesCount; i++)
+	{
+		struct Particle dynamicParticle;
+		dynamicParticle.mass = 0.001;
+		dynamicParticle.weight = 1 / dynamicParticle.mass;
+
+		float xPos = particles[i].position.x + 0.05f;			// move to the right of previous particle
+		float yPos = staticParticle.position.y + 0.001f * i;		// move up a litte bit
+		dynamicParticle.position = glm::vec3(xPos, yPos, 0);
+		dynamicParticle.velocity = glm::vec3(0,0,0);
+		dynamicParticle.netForce = glm::vec3(0,0,0);
+
+		struct Spring spring;
+		spring.restLength = 0.07;
+		spring.p1 = i;		// previous
+		spring.p2 = i+1;	// current
+		spring.stiffness = 0.8;
+		spring.dampening = 1.0 * 2 * sqrt(dynamicParticle.mass * spring.stiffness);
+
+		particles.push_back(dynamicParticle);
+		springs.push_back(spring);
+	}
+
+	shader = make_shared<Shader>("rsc/vertex.glsl", "rsc/fragment.glsl");
+	shader->link();
+
+	particlePositions.clear();
+	for (const auto& particle : particles)
+	{
+		for (uint i = 0; i < 3; i++)
+			particlePositions.push_back(particle.position[i]);
+	}
+
+	int componentsPerAttrib = 3;	
+	vertexArray = make_shared<VertexArray>(
+		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
+}
+
 int Engine::run()
 {
 	if (!windowInitialized_)
@@ -132,10 +185,32 @@ void Engine::processInput()
 		glfwSetWindowShouldClose(window_.get(), true);
 	}
 
-	if (glfwGetKey(window_.get(), GLFW_KEY_R) == GLFW_PRESS)
+	if (glfwGetKey(window_.get(), GLFW_KEY_R) == GLFW_PRESS && !rKeyHeld)
 	{
+		rKeyHeld = true;
 		initScene();
 	}
+
+	if (glfwGetKey(window_.get(), GLFW_KEY_RIGHT) == GLFW_PRESS && !rightKeyHeld)
+	{
+		rightKeyHeld = true;
+		currentScene = currentScene >= TOTAL_SCENES - 1 ? TOTAL_SCENES - 1 : currentScene + 1;
+		initScene();
+	}
+
+	if (glfwGetKey(window_.get(), GLFW_KEY_LEFT) == GLFW_PRESS && !leftKeyHeld)
+	{
+		leftKeyHeld = true;
+		currentScene = currentScene <= 0 ? 0 : currentScene - 1;
+		initScene();
+	}
+
+	if (glfwGetKey(window_.get(), GLFW_KEY_RIGHT) == GLFW_RELEASE)
+		rightKeyHeld = false;
+	if (glfwGetKey(window_.get(), GLFW_KEY_LEFT) == GLFW_RELEASE)
+		leftKeyHeld = false;
+	if (glfwGetKey(window_.get(), GLFW_KEY_R) == GLFW_RELEASE)
+		rKeyHeld = false;
 }
 
 void Engine::update()
@@ -143,6 +218,7 @@ void Engine::update()
 
 	for (uint i = 0; i < updatesPerFrame; i++)
 	{
+		// calc spring force on each particle
 		for (auto& spring : springs)
 		{
 			glm::vec3 springForce = calcSpringForce(spring);
@@ -150,11 +226,13 @@ void Engine::update()
 			particles[spring.p2].netForce -= springForce;
 		}
 
+		// calc external forces on each particle then update position
 		for (auto& particle : particles)
 		{
 			particle.netForce += particle.mass * gravityForce;
+			particle.netForce += -airDampening * particle.velocity;
 
-			if (particle.mass > 0)
+			if (particle.mass > 0)		// if not a static particle
 			{
 				particle.velocity += (particle.netForce * particle.weight * deltaT);
 				particle.position += particle.velocity * deltaT;
@@ -229,4 +307,14 @@ void Engine::render()
 	shader->unuse();
 	glfwSwapBuffers(window_.get());
 	glfwPollEvents();
+}
+
+void Engine::initScene()
+{
+	switch (currentScene)
+	{
+		case 0 : initSingleSpringScene(); break;
+		case 1 : initMultipleSpringsScene(); break;
+		default : break;
+	}
 }
