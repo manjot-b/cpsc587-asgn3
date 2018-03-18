@@ -109,13 +109,20 @@ void Engine::initSingleSpringScene()
 	int componentsPerAttrib = 3;	
 	vertexArray = make_shared<VertexArray>(
 		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
+
+	glm::mat4 identity(1.0f);
+	camera = Camera(identity, identity);
+
+	shader->use();
+	shader->setUniformMatrix4fv("projectionView", camera.getProjectionViewMatrix());
+	shader->unuse();
 }
 
 void Engine::initMultipleSpringsScene()
 {
 	struct Particle staticParticle;
 	staticParticle.mass = 0;			// makes this a static particle
-	staticParticle.position = glm::vec3(0,0.9f,0);
+	staticParticle.position = glm::vec3(0, 0.9f, 0);
 	staticParticle.velocity = glm::vec3(0,0.0,0);
 	staticParticle.netForce = glm::vec3(0,0,0);
 
@@ -160,6 +167,107 @@ void Engine::initMultipleSpringsScene()
 	int componentsPerAttrib = 3;	
 	vertexArray = make_shared<VertexArray>(
 		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
+
+	glm::mat4 identity(1.0f);
+	camera = Camera(identity, identity);
+
+	shader->use();
+	shader->setUniformMatrix4fv("projectionView", camera.getProjectionViewMatrix());
+	shader->unuse();
+}
+
+void Engine::initJelloScene()
+{
+	// struct Particle staticParticle;
+	// staticParticle.mass = 0;			// makes this a static particle
+	// staticParticle.position = glm::vec3(0,0.9f,0);
+	// staticParticle.velocity = glm::vec3(0,0.0,0);
+	// staticParticle.netForce = glm::vec3(0,0,0);
+
+	springs.clear();		// clear previous
+	particles.clear();		// clear previous incase we are resetting scene
+	// particles.push_back(staticParticle);
+
+	struct Particle dynamicParticle;
+	dynamicParticle.velocity = glm::vec3(0,0,0);
+	dynamicParticle.netForce = glm::vec3(0,0,0);
+	
+	uint cubeSize = 5;
+	int cubeLength = 1;
+	for (uint i = 0; i < cubeSize; i++)	// width
+	{
+		for (uint j = 0; j < cubeSize; j++)	// height
+		{
+			for (uint k = 0; k < cubeSize; k++)	// depth
+			{
+				// if (i == 0 && j == 0 && k == 0 )	// static particle
+				// {
+				// 	dynamicParticle.mass = 0;
+				// 	dynamicParticle.position = glm::vec3(0, 0, -3);
+				// }
+				// else
+				{
+					float xPos = cubeLength * ((float)(i)) / cubeSize; 
+					float yPos = cubeLength * ((float)(j)) / cubeSize + 1; 
+					float zPos = -cubeLength * ((float)(k)) / cubeSize; 
+					dynamicParticle.position = glm::vec3(xPos, yPos, zPos);		
+					dynamicParticle.mass = 0.01;
+					dynamicParticle.weight = 1 / dynamicParticle.mass;
+				}
+				particles.push_back(dynamicParticle);
+				
+			}
+		}
+	}
+
+
+	const float MAX_DIST = sqrt( 3.0f / (cubeSize*cubeSize) );
+
+	struct Spring spring;
+	spring.restLength = 0.3;
+	spring.stiffness = 1.8;
+	spring.dampening = 1.0 * 2 * sqrt(dynamicParticle.mass * spring.stiffness);
+
+	for (uint i = 0; i < particles.size(); i++)
+	{
+		for (uint j = i+1; j < particles.size(); j++)
+		{
+			float dist = glm::distance(particles[i].position, particles[j].position);
+			if (dist <= MAX_DIST)
+			{
+				spring.p1 = i;		
+				spring.p2 = j;		
+				springs.push_back(spring);
+			}
+		}
+	}
+
+	shader = make_shared<Shader>("rsc/vertex.glsl", "rsc/fragment.glsl");
+	shader->link();
+
+	particlePositions.clear();
+	for (const auto& particle : particles)
+	{
+		for (uint i = 0; i < 3; i++)
+			particlePositions.push_back(particle.position[i]);
+	}
+
+	int componentsPerAttrib = 3;	
+	vertexArray = make_shared<VertexArray>(
+		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
+
+	glm::mat4 view = glm::lookAt(
+		glm::vec3(1, 1.5, 4.2),		// position
+		glm::vec3(0, 0, -1),		// looking
+		glm::vec3(0, 1, 0)		// up
+	);
+	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)800 / 800, 0.1f, 100.0f);
+	camera = Camera(view, projection);
+
+	shader->use();
+	shader->setUniformMatrix4fv("projectionView", camera.getProjectionViewMatrix());
+	shader->unuse();
+	
 }
 
 int Engine::run()
@@ -226,6 +334,9 @@ void Engine::update()
 			particles[spring.p2].netForce -= springForce;
 		}
 
+		// cout << particles[0].netForce[0] << " " << particles[0].netForce[1] 
+		// 	<< " " << particles[0].netForce[2] << endl;
+
 		// calc external forces on each particle then update position
 		for (auto& particle : particles)
 		{
@@ -242,11 +353,14 @@ void Engine::update()
 		}
 	}
 
+	// cout << particles[0].netForce[0] << " " << particles[0].netForce[1] 
+	// 	<< " " << particles[0].netForce[2] << endl;
 	// update final particle positions
 	for (uint i = 0; i < particles.size(); i++)
 	{
 		for (uint j = 0; j < 3; j++)
 			particlePositions[i*3 + j] = particles[i].position[j];
+		
 	}
 	vertexArray->updateBuffer(particlePositions.data(), particlePositions.size());
 
@@ -280,6 +394,11 @@ glm::vec3 Engine::calcSpringForce(const Spring& spring)
 
 	glm::vec3 dampeningForce = hooksForceNorm * -spring.dampening * ( (p1.velocity - p2.velocity) * hooksForce ); 
 
+
+	// cout << distance << endl;
+	// cout << hooksForce[0] << " " << hooksForce[1] 
+	// 	<< " " << hooksForce[2] << endl;
+
 	return hooksForce + dampeningForce;
 }
 
@@ -288,7 +407,7 @@ void Engine::render()
 	glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glPointSize(15);
+	glPointSize(8);
 	shader->use();
 
 	// for (auto& particle : particles)
@@ -315,6 +434,7 @@ void Engine::initScene()
 	{
 		case 0 : initSingleSpringScene(); break;
 		case 1 : initMultipleSpringsScene(); break;
+		case 2 : initJelloScene(); break;
 		default : break;
 	}
 }
