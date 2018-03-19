@@ -211,7 +211,7 @@ void Engine::initJelloScene()
 					float yPos = cubeLength * ((float)(j)) / cubeSize + 1; 
 					float zPos = -cubeLength * ((float)(k)) / cubeSize; 
 					dynamicParticle.position = glm::vec3(xPos, yPos, zPos);		
-					dynamicParticle.mass = 0.01;
+					dynamicParticle.mass = 0.001;
 					dynamicParticle.weight = 1 / dynamicParticle.mass;
 				}
 				particles.push_back(dynamicParticle);
@@ -222,6 +222,7 @@ void Engine::initJelloScene()
 
 
 	const float MAX_DIST = sqrt( 3.0f / (cubeSize*cubeSize) );
+	// cout << MAX_DIST << endl;
 
 	struct Spring spring;
 	spring.restLength = 0.3;
@@ -230,16 +231,23 @@ void Engine::initJelloScene()
 
 	for (uint i = 0; i < particles.size(); i++)
 	{
+		int ctr = 0;
 		for (uint j = i+1; j < particles.size(); j++)
 		{
 			float dist = glm::distance(particles[i].position, particles[j].position);
 			if (dist <= MAX_DIST)
 			{
+				ctr++;
+				if (ctr >= 6) cout << i << "\t" << j << endl;
+
 				spring.p1 = i;		
-				spring.p2 = j;		
+				spring.p2 = j;
+				spring.restLength = dist;		
 				springs.push_back(spring);
 			}
 		}
+		// cout << ctr << endl;
+		ctr = 0;
 	}
 
 	shader = make_shared<Shader>("rsc/vertex.glsl", "rsc/fragment.glsl");
