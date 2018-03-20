@@ -193,7 +193,7 @@ void Engine::initJelloScene()
 	dynamicParticle.netForce = glm::vec3(0,0,0);
 	
 	uint cubeSize = 4;
-	float cubeLength = 2;
+	float cubeLength = 5;
 	const float smallCubeLength = cubeLength / (cubeSize-1);
 	for (uint i = 0; i < cubeSize; i++)	// width
 	{
@@ -209,7 +209,7 @@ void Engine::initJelloScene()
 				// else
 				{
 					float xPos = smallCubeLength * i - cubeLength/2.f; 
-					float yPos = smallCubeLength * j; 
+					float yPos = smallCubeLength * j + 5; 
 					float zPos = -smallCubeLength * k; 
 					dynamicParticle.position = glm::vec3(xPos, yPos, zPos);		
 					dynamicParticle.mass = 0.001;
@@ -264,9 +264,23 @@ void Engine::initJelloScene()
 		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
 	vertexArray->setElementBuffer(indicies.data(), indicies.size());
 
+	// Create ground
+	groundVertices = {
+		-10, -1, -10,
+		-10, -1, 10,
+		10, -1, -10,
+		10, -1, 10
+		};
+	groundIndices = {
+		0, 1, 2,
+		2, 1, 3
+	};
+	groundVertexArray = make_shared<VertexArray>(&componentsPerAttrib, 1, groundVertices.data(), groundVertices.size());
+	groundVertexArray->setElementBuffer(groundIndices.data(), indicies.size());
+
 	glm::mat4 view = glm::lookAt(
 		// glm::vec3(1, 1.5, 4.2),		// position
-		glm::vec3(0, 0, 7.2),
+		glm::vec3(0, 1, 16),
 		glm::vec3(0, 0, -1),		// looking
 		glm::vec3(0, 1, 0)		// up
 	);
@@ -419,14 +433,23 @@ void Engine::render()
 
 	vertexArray->use();
 
-	shader->setUniform1i("drawPoints", 1);
+	shader->setUniform4fv("uColor", glm::vec4(1, 1, 1, 1));
 	glDrawArrays(GL_POINTS, 0, particles.size());
-	shader->setUniform1i("drawPoints", 0);	
 
-	if (currentScene == Scene::Jello) 
+	if (currentScene == Scene::Jello)
+	{
+		shader->setUniform4fv("uColor", glm::vec4(1, 0.9, 0, 1));
 		glDrawElements(GL_LINES, indicies.size(), GL_UNSIGNED_INT, 0);
+		
+		shader->setUniform4fv("uColor", glm::vec4(0.03, 1, 0.7, 1));
+		groundVertexArray->use();
+		glDrawElements(GL_TRIANGLES, groundIndices.size(), GL_UNSIGNED_INT, 0);
+	} 
 	else
-		glDrawArrays(GL_LINE_STRIP, 0, particles.size());
+	{
+		shader->setUniform4fv("uColor", glm::vec4(1, 0.9, 0, 1));
+		glDrawArrays(GL_LINE_STRIP, 0, particles.size());		
+	}
 	vertexArray->unuse();
 
 	shader->unuse();

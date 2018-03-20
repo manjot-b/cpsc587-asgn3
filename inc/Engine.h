@@ -52,6 +52,10 @@ class Engine
         std::vector<Particle> particles;
         std::vector<float> particlePositions;
 
+        std::vector<float> groundVertices;
+        std::vector<uint> groundIndices;
+        std::shared_ptr<VertexArray> groundVertexArray;
+
         const float EPSILON = 1E-5;
         float deltaT = 0.0001;                               // in miliseconds
         uint updatesPerFrame = (1.0f / 60) / deltaT;
