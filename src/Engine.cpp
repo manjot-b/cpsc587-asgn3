@@ -196,9 +196,10 @@ void Engine::initJelloScene()
 	float cubeLength = 5;
 	const float smallCubeLength = cubeLength / (cubeSize-1);
 	
-	glm::mat4 rotation(1.0);
-	rotation = glm::rotate(rotation, 90.0f, glm::vec3(0, 0, 1));
-	
+	glm::mat4 transformation(1.0);
+	transformation = glm::translate(transformation, glm::vec3(-2, 7, 0));	
+	transformation = glm::rotate(transformation, glm::radians(35.0f), glm::vec3(0, 0, 1));
+
 	for (uint i = 0; i < cubeSize; i++)	// width
 	{
 		for (uint j = 0; j < cubeSize; j++)	// height
@@ -212,10 +213,10 @@ void Engine::initJelloScene()
 				// }
 				// else
 				{
-					float xPos = smallCubeLength * i - cubeLength/2.f; 
-					float yPos = smallCubeLength * j + 5; 
+					float xPos = smallCubeLength * i;// - cubeLength/2.f; 
+					float yPos = smallCubeLength * j;// + 5; 
 					float zPos = -smallCubeLength * k; 
-					dynamicParticle.position = rotation * glm::vec4(xPos, yPos, zPos, 1.0);		
+					dynamicParticle.position = transformation * glm::vec4(xPos, yPos, zPos, 1.0);		
 					dynamicParticle.mass = 0.001;
 					dynamicParticle.weight = 1 / dynamicParticle.mass;
 				}
@@ -240,7 +241,7 @@ void Engine::initJelloScene()
 			float dist = glm::distance(particles[i].position, particles[j].position);
 			if (dist <= MAX_DIST)
 			{
-				if (i == 0) cout << i << "\t" << j << endl;
+				// if (i == 0) cout << i << "\t" << j << endl;
 				spring.p1 = i;		
 				spring.p2 = j;
 				spring.restLength = dist;		
@@ -428,6 +429,7 @@ void Engine::checkCollisions(Particle& particle)
 	float groundYPos = groundVertices[1];	// stored as xyz
 	if (particle.position[1] <= groundYPos)
 	{
+		particle.position[1] = groundYPos + EPSILON;
 		particle.velocity = -particle.velocity;
 	}
 }
