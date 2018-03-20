@@ -4,15 +4,17 @@
 using namespace std;
 
 VertexArray::VertexArray(
-    const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize, GLenum drawUsage)
+    const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize, GLenum _drawType)
+: drawType(_drawType)
 {
-    
     glGenBuffers(1, &vbo); // gen buffer and store id in VBO
-	glGenVertexArrays(1, &id);
+	glGenBuffers(1, &ebo);
+    glGenVertexArrays(1, &id);
     
     glBindVertexArray(id);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER,  buffSize * sizeof(float), buffer, drawUsage);
+	glBufferData(GL_ARRAY_BUFFER,  buffSize * sizeof(float), buffer, drawType);
 
     const int totalComponents = sumArray(0, vertCompSize, componentsPerAttribute);
     const int stride = totalComponents * sizeof(float);
@@ -28,6 +30,7 @@ VertexArray::VertexArray(
 
 	// unbind VAO, VBO, and EBO
 	glBindVertexArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
@@ -66,6 +69,15 @@ void VertexArray::updateBuffer(const float buffer[], size_t buffSize)
     glBufferSubData(GL_ARRAY_BUFFER, 0, buffSize * sizeof(float), buffer);
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void VertexArray::setElementBuffer(const unsigned int buffer[], size_t buffSize)
+{
+    glBindVertexArray(id);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, buffSize * sizeof(unsigned int), buffer, drawType);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 

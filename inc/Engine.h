@@ -26,6 +26,13 @@ class Engine
             }
         };
 
+        enum Scene 
+        {
+            SingleSpring,
+            MultipleSprings,
+            Jello
+        };
+
         typedef std::unique_ptr<GLFWwindow, DestroyglfwWin> GLFWwindowPtr;
         GLFWwindowPtr window_;
         bool windowInitialized_;
@@ -40,6 +47,7 @@ class Engine
         bool leftKeyHeld = false;
         bool rKeyHeld = false;
 
+	    std::vector<uint> indicies;        
         std::vector<Spring> springs;
         std::vector<Particle> particles;
         std::vector<float> particlePositions;

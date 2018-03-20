@@ -22,15 +22,18 @@ class VertexArray
         */
         VertexArray() {};
         VertexArray(
-            const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize, GLenum drawUsage = GL_STATIC_DRAW);
+            const int componentsPerAttribute[], size_t vertCompSize, const float buffer[], size_t buffSize, GLenum drawType = GL_STATIC_DRAW);
         ~VertexArray();
         GLuint getID() const { return id; };
 
         void use() const;
         void unuse() const;
         void updateBuffer(const float buffer[], size_t buffSize);
+        void setElementBuffer (const unsigned int buffer[], size_t buffSize);
     private:
         GLuint id;
         GLuint vbo;
+        GLuint ebo;
+        GLenum drawType;
         int sumArray(int start, int end, const int array[]) const;
 };

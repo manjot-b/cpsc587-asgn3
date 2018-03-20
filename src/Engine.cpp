@@ -193,7 +193,8 @@ void Engine::initJelloScene()
 	dynamicParticle.netForce = glm::vec3(0,0,0);
 	
 	uint cubeSize = 4;
-	int cubeLength = 3;
+	float cubeLength = 2;
+	const float smallCubeLength = cubeLength / (cubeSize-1);
 	for (uint i = 0; i < cubeSize; i++)	// width
 	{
 		for (uint j = 0; j < cubeSize; j++)	// height
@@ -207,9 +208,9 @@ void Engine::initJelloScene()
 				// }
 				// else
 				{
-					float xPos = cubeLength * ((float)(i)) / cubeSize - cubeLength/2.f; 
-					float yPos = cubeLength * ((float)(j)) / cubeSize + 1; 
-					float zPos = -cubeLength * ((float)(k)) / cubeSize; 
+					float xPos = smallCubeLength * i - cubeLength/2.f; 
+					float yPos = smallCubeLength * j; 
+					float zPos = -smallCubeLength * k; 
 					dynamicParticle.position = glm::vec3(xPos, yPos, zPos);		
 					dynamicParticle.mass = 0.001;
 					dynamicParticle.weight = 1 / dynamicParticle.mass;
@@ -220,10 +221,10 @@ void Engine::initJelloScene()
 		}
 	}
 
-
-	const float MAX_DIST = sqrt( (3.0f * cubeLength) / (cubeSize*cubeSize) ) + 1E-5;
-	cout << glm::distance(particles[0].position, particles[31].position) << endl;
-
+	const float MAX_DIST = sqrt( 3.0*smallCubeLength*smallCubeLength );
+	// cout << smallCubeLength << " " << MAX_DIST << endl;
+	// cout << glm::distance(particles[0].position, particles[21].position) << endl;
+	
 	struct Spring spring;
 	spring.restLength = 0.3;
 	spring.stiffness = 1.0;
@@ -231,23 +232,21 @@ void Engine::initJelloScene()
 
 	for (uint i = 0; i < particles.size(); i++)
 	{
-		int ctr = 0;
 		for (uint j = i+1; j < particles.size(); j++)
 		{
 			float dist = glm::distance(particles[i].position, particles[j].position);
 			if (dist <= MAX_DIST)
 			{
-				ctr++;
-				// if (i == 1) cout << i << "\t" << j << endl;
-
+				if (i == 0) cout << i << "\t" << j << endl;
 				spring.p1 = i;		
 				spring.p2 = j;
 				spring.restLength = dist;		
 				springs.push_back(spring);
+
+				indicies.push_back(i);
+				indicies.push_back(j);
 			}
 		}
-		// cout << ctr << endl;
-		ctr = 0;
 	}
 
 	shader = make_shared<Shader>("rsc/vertex.glsl", "rsc/fragment.glsl");
@@ -263,10 +262,11 @@ void Engine::initJelloScene()
 	int componentsPerAttrib = 3;	
 	vertexArray = make_shared<VertexArray>(
 		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
+	vertexArray->setElementBuffer(indicies.data(), indicies.size());
 
 	glm::mat4 view = glm::lookAt(
 		// glm::vec3(1, 1.5, 4.2),		// position
-		glm::vec3(0, 0, 4.2),
+		glm::vec3(0, 0, 7.2),
 		glm::vec3(0, 0, -1),		// looking
 		glm::vec3(0, 1, 0)		// up
 	);
@@ -341,23 +341,13 @@ void Engine::update()
 			glm::vec3 springForce = calcSpringForce(spring);
 			particles[spring.p1].netForce += springForce;
 			particles[spring.p2].netForce -= springForce;
-	
-			if (isnan(particles[spring.p1].netForce[0])) 
-			{
-				cout << "SPRING" << spring.p1 << endl;
-				exit(EXIT_FAILURE);
-			}
-			if (isnan(particles[spring.p2].netForce[0])) 
-			{
-				cout << "GRAVITY" << spring.p2 << endl;
-				exit(EXIT_FAILURE);
-			}
 		}
 
 		// calc external forces on each particle then update position
 		for (auto& particle : particles)
 		{
 			particle.netForce += particle.mass * gravityForce;
+			particle.netForce += -airDampening * particle.velocity;
 
 			if (particle.mass > 0)		// if not a static particle
 			{
@@ -376,7 +366,6 @@ void Engine::update()
 		
 	}
 	vertexArray->updateBuffer(particlePositions.data(), particlePositions.size());
-
 	
 }
 
@@ -429,8 +418,15 @@ void Engine::render()
 	// }
 
 	vertexArray->use();
+
+	shader->setUniform1i("drawPoints", 1);
 	glDrawArrays(GL_POINTS, 0, particles.size());
-	glDrawArrays(GL_LINE_STRIP, 0, particles.size());
+	shader->setUniform1i("drawPoints", 0);	
+
+	if (currentScene == Scene::Jello) 
+		glDrawElements(GL_LINES, indicies.size(), GL_UNSIGNED_INT, 0);
+	else
+		glDrawArrays(GL_LINE_STRIP, 0, particles.size());
 	vertexArray->unuse();
 
 	shader->unuse();
