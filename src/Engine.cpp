@@ -195,6 +195,10 @@ void Engine::initJelloScene()
 	uint cubeSize = 4;
 	float cubeLength = 5;
 	const float smallCubeLength = cubeLength / (cubeSize-1);
+	
+	glm::mat4 rotation(1.0);
+	rotation = glm::rotate(rotation, 90.0f, glm::vec3(0, 0, 1));
+	
 	for (uint i = 0; i < cubeSize; i++)	// width
 	{
 		for (uint j = 0; j < cubeSize; j++)	// height
@@ -211,7 +215,7 @@ void Engine::initJelloScene()
 					float xPos = smallCubeLength * i - cubeLength/2.f; 
 					float yPos = smallCubeLength * j + 5; 
 					float zPos = -smallCubeLength * k; 
-					dynamicParticle.position = glm::vec3(xPos, yPos, zPos);		
+					dynamicParticle.position = rotation * glm::vec4(xPos, yPos, zPos, 1.0);		
 					dynamicParticle.mass = 0.001;
 					dynamicParticle.weight = 1 / dynamicParticle.mass;
 				}
@@ -226,8 +230,7 @@ void Engine::initJelloScene()
 	// cout << glm::distance(particles[0].position, particles[21].position) << endl;
 	
 	struct Spring spring;
-	spring.restLength = 0.3;
-	spring.stiffness = 1.0;
+	spring.stiffness = 0.3;
 	spring.dampening = 1.0 * 2 * sqrt(dynamicParticle.mass * spring.stiffness);
 
 	for (uint i = 0; i < particles.size(); i++)
@@ -367,6 +370,11 @@ void Engine::update()
 			{
 				particle.velocity += (particle.netForce * particle.weight * deltaT);
 				particle.position += particle.velocity * deltaT;
+
+				if (currentScene == Scene::Jello)
+				{
+					checkCollisions(particle);
+				}
 			}
 
 			particle.netForce = glm::vec3(0, 0, 0);
@@ -413,6 +421,15 @@ glm::vec3 Engine::calcSpringForce(const Spring& spring)
 	glm::vec3 dampeningForce = hooksForceNorm * -spring.dampening * ( (p1.velocity - p2.velocity) * hooksForce ); 
 
 	return hooksForce + dampeningForce;
+}
+
+void Engine::checkCollisions(Particle& particle)
+{
+	float groundYPos = groundVertices[1];	// stored as xyz
+	if (particle.position[1] <= groundYPos)
+	{
+		particle.velocity = -particle.velocity;
+	}
 }
 
 void Engine::render()

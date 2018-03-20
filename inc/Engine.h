@@ -69,6 +69,7 @@ class Engine
         void initJelloScene();
         void processInput();
         void update();
+        void checkCollisions(Particle& particle);
         void render();        
 
         glm::vec3 calcSpringForce(const Spring& spring);
