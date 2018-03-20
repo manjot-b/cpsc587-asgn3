@@ -30,7 +30,8 @@ class Engine
         {
             SingleSpring,
             MultipleSprings,
-            Jello
+            Jello,
+            Curtain
         };
 
         typedef std::unique_ptr<GLFWwindow, DestroyglfwWin> GLFWwindowPtr;
@@ -42,7 +43,7 @@ class Engine
         Camera camera;
 
         uint currentScene = 0;              // starts at index 0
-        const uint TOTAL_SCENES = 3;    
+        const uint TOTAL_SCENES = 4;    
         bool rightKeyHeld = false;
         bool leftKeyHeld = false;
         bool rKeyHeld = false;
@@ -60,13 +61,14 @@ class Engine
         float deltaT = 0.0001;                               // in miliseconds
         uint updatesPerFrame = (1.0f / 60) / deltaT;
         glm::vec3 gravityForce = glm::vec3(0, -9.81f, 0);
-        float airDampening = 0.000001;
+        float airDampening = 0.0001;
 
         bool initWindow();
         void initScene();
         void initSingleSpringScene();
         void initMultipleSpringsScene();
         void initJelloScene();
+        void initCurtainScene();
         void processInput();
         void update();
         void checkCollisions(Particle& particle);

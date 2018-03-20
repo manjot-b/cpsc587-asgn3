@@ -178,15 +178,10 @@ void Engine::initMultipleSpringsScene()
 
 void Engine::initJelloScene()
 {
-	// struct Particle staticParticle;
-	// staticParticle.mass = 0;			// makes this a static particle
-	// staticParticle.position = glm::vec3(0,0.9f,0);
-	// staticParticle.velocity = glm::vec3(0,0.0,0);
-	// staticParticle.netForce = glm::vec3(0,0,0);
-
 	springs.clear();		// clear previous
 	particles.clear();		// clear previous incase we are resetting scene
-	// particles.push_back(staticParticle);
+	indicies.clear();
+	particlePositions.clear();
 
 	struct Particle dynamicParticle;
 	dynamicParticle.velocity = glm::vec3(0,0,0);
@@ -295,6 +290,104 @@ void Engine::initJelloScene()
 	shader->setUniformMatrix4fv("projectionView", camera.getProjectionViewMatrix());
 	shader->unuse();
 	
+}
+
+void Engine::initCurtainScene()
+{
+	springs.clear();		// clear previous
+	particles.clear();		// clear previous incase we are resetting scene
+	indicies.clear();
+	particlePositions.clear();
+	// particles.push_back(staticParticle);
+
+	struct Particle particle;
+	particle.velocity = glm::vec3(0,0,0);
+	particle.netForce = glm::vec3(0,0,0);
+	
+	uint squareSize = 8;
+	float squareLength = 5;
+	const float smallSquareLength = squareLength / (squareSize-1);
+	
+	glm::mat4 transformation(1.0);
+	transformation = glm::translate(transformation, glm::vec3(-6, 2, 0));	
+	transformation = glm::rotate(transformation, glm::radians(55.0f), glm::vec3(0, 1, 0));
+	transformation = glm::rotate(transformation, glm::radians(75.0f), glm::vec3(1, 0, 0));	
+
+	for (uint i = 0; i < squareSize; i++)	// width
+	{
+		for (uint j = 0; j < squareSize; j++)	// height
+		{
+			if (j == squareSize - 1)	// static particle
+			{
+				particle.mass = 0;
+			}
+			else
+			{
+				particle.mass = 0.001;
+				particle.weight = 1 / particle.mass;
+			}
+
+			float xPos = smallSquareLength * i;// - squareLength/2.f; 
+			float yPos = smallSquareLength * j;// + 5; 
+			// float zPos = -smallSquareLength * k; 
+			particle.position = transformation * glm::vec4(xPos, yPos, 0, 1.0);		
+			particles.push_back(particle);		
+		}
+	}
+
+	const float MAX_DIST = sqrt( 2.0*smallSquareLength*smallSquareLength );
+	// cout << smallCubeLength << " " << MAX_DIST << endl;
+	// cout << glm::distance(particles[0].position, particles[21].position) << endl;
+	
+	// cout << particles.size() << endl;
+	struct Spring spring;
+	spring.stiffness = 2.3;
+	spring.dampening = 1.5 * 2 * sqrt(particle.mass * spring.stiffness);
+
+	for (uint i = 0; i < particles.size(); i++)
+	{
+		for (uint j = i+1; j < particles.size(); j++)
+		{
+			float dist = glm::distance(particles[i].position, particles[j].position);
+			if (dist <= MAX_DIST + EPSILON)
+			{
+				if (i == 2) cout << i << "\t" << j << endl;
+				spring.p1 = i;		
+				spring.p2 = j;
+				spring.restLength = dist;		
+				springs.push_back(spring);
+
+				indicies.push_back(i);
+				indicies.push_back(j);
+			}
+		}
+	}
+	shader = make_shared<Shader>("rsc/vertex.glsl", "rsc/fragment.glsl");
+	shader->link();
+
+	for (const auto& particle : particles)
+	{
+		for (uint i = 0; i < 3; i++)
+			particlePositions.push_back(particle.position[i]);
+	}
+
+	int componentsPerAttrib = 3;	
+	vertexArray = make_shared<VertexArray>(
+		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
+	vertexArray->setElementBuffer(indicies.data(), indicies.size());
+
+	glm::mat4 view = glm::lookAt(
+		// glm::vec3(1, 1.5, 4.2),		// position
+		glm::vec3(0, 1, 16),
+		glm::vec3(0, 0, -1),		// looking
+		glm::vec3(0, 1, 0)		// up
+	);
+	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)800 / 800, 0.1f, 100.0f);
+	camera = Camera(view, projection);
+
+	shader->use();
+	shader->setUniformMatrix4fv("projectionView", camera.getProjectionViewMatrix());
+	shader->unuse();
 }
 
 int Engine::run()
@@ -455,14 +548,17 @@ void Engine::render()
 	shader->setUniform4fv("uColor", glm::vec4(1, 1, 1, 1));
 	glDrawArrays(GL_POINTS, 0, particles.size());
 
-	if (currentScene == Scene::Jello)
+	if (currentScene == Scene::Jello || currentScene == Scene::Curtain)
 	{
 		shader->setUniform4fv("uColor", glm::vec4(1, 0.9, 0, 1));
 		glDrawElements(GL_LINES, indicies.size(), GL_UNSIGNED_INT, 0);
 		
-		shader->setUniform4fv("uColor", glm::vec4(0.03, 1, 0.7, 1));
-		groundVertexArray->use();
-		glDrawElements(GL_TRIANGLES, groundIndices.size(), GL_UNSIGNED_INT, 0);
+		if (currentScene == Scene::Jello)
+		{
+			shader->setUniform4fv("uColor", glm::vec4(0.03, 1, 0.7, 1));
+			groundVertexArray->use();
+			glDrawElements(GL_TRIANGLES, groundIndices.size(), GL_UNSIGNED_INT, 0);
+		}
 	} 
 	else
 	{
@@ -480,9 +576,10 @@ void Engine::initScene()
 {
 	switch (currentScene)
 	{
-		case 0 : initSingleSpringScene(); break;
-		case 1 : initMultipleSpringsScene(); break;
-		case 2 : initJelloScene(); break;
+		case Scene::SingleSpring : initSingleSpringScene(); break;
+		case Scene::MultipleSprings : initMultipleSpringsScene(); break;
+		case Scene::Jello : initJelloScene(); break;
+		case Scene::Curtain : initCurtainScene(); break;
 		default : break;
 	}
 }
