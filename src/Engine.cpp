@@ -192,8 +192,8 @@ void Engine::initJelloScene()
 	dynamicParticle.velocity = glm::vec3(0,0,0);
 	dynamicParticle.netForce = glm::vec3(0,0,0);
 	
-	uint cubeSize = 5;
-	int cubeLength = 1;
+	uint cubeSize = 4;
+	int cubeLength = 3;
 	for (uint i = 0; i < cubeSize; i++)	// width
 	{
 		for (uint j = 0; j < cubeSize; j++)	// height
@@ -207,7 +207,7 @@ void Engine::initJelloScene()
 				// }
 				// else
 				{
-					float xPos = cubeLength * ((float)(i)) / cubeSize; 
+					float xPos = cubeLength * ((float)(i)) / cubeSize - cubeLength/2.f; 
 					float yPos = cubeLength * ((float)(j)) / cubeSize + 1; 
 					float zPos = -cubeLength * ((float)(k)) / cubeSize; 
 					dynamicParticle.position = glm::vec3(xPos, yPos, zPos);		
@@ -221,12 +221,12 @@ void Engine::initJelloScene()
 	}
 
 
-	const float MAX_DIST = sqrt( 3.0f / (cubeSize*cubeSize) );
-	// cout << MAX_DIST << endl;
+	const float MAX_DIST = sqrt( (3.0f * cubeLength) / (cubeSize*cubeSize) ) + 1E-5;
+	cout << glm::distance(particles[0].position, particles[31].position) << endl;
 
 	struct Spring spring;
 	spring.restLength = 0.3;
-	spring.stiffness = 1.8;
+	spring.stiffness = 1.0;
 	spring.dampening = 1.0 * 2 * sqrt(dynamicParticle.mass * spring.stiffness);
 
 	for (uint i = 0; i < particles.size(); i++)
@@ -238,7 +238,7 @@ void Engine::initJelloScene()
 			if (dist <= MAX_DIST)
 			{
 				ctr++;
-				if (ctr >= 6) cout << i << "\t" << j << endl;
+				// if (i == 1) cout << i << "\t" << j << endl;
 
 				spring.p1 = i;		
 				spring.p2 = j;
@@ -265,7 +265,8 @@ void Engine::initJelloScene()
 		&componentsPerAttrib, 1, particlePositions.data(), particlePositions.size(), GL_DYNAMIC_DRAW);
 
 	glm::mat4 view = glm::lookAt(
-		glm::vec3(1, 1.5, 4.2),		// position
+		// glm::vec3(1, 1.5, 4.2),		// position
+		glm::vec3(0, 0, 4.2),
 		glm::vec3(0, 0, -1),		// looking
 		glm::vec3(0, 1, 0)		// up
 	);
@@ -340,16 +341,23 @@ void Engine::update()
 			glm::vec3 springForce = calcSpringForce(spring);
 			particles[spring.p1].netForce += springForce;
 			particles[spring.p2].netForce -= springForce;
+	
+			if (isnan(particles[spring.p1].netForce[0])) 
+			{
+				cout << "SPRING" << spring.p1 << endl;
+				exit(EXIT_FAILURE);
+			}
+			if (isnan(particles[spring.p2].netForce[0])) 
+			{
+				cout << "GRAVITY" << spring.p2 << endl;
+				exit(EXIT_FAILURE);
+			}
 		}
-
-		// cout << particles[0].netForce[0] << " " << particles[0].netForce[1] 
-		// 	<< " " << particles[0].netForce[2] << endl;
 
 		// calc external forces on each particle then update position
 		for (auto& particle : particles)
 		{
 			particle.netForce += particle.mass * gravityForce;
-			particle.netForce += -airDampening * particle.velocity;
 
 			if (particle.mass > 0)		// if not a static particle
 			{
@@ -361,9 +369,6 @@ void Engine::update()
 		}
 	}
 
-	// cout << particles[0].netForce[0] << " " << particles[0].netForce[1] 
-	// 	<< " " << particles[0].netForce[2] << endl;
-	// update final particle positions
 	for (uint i = 0; i < particles.size(); i++)
 	{
 		for (uint j = 0; j < 3; j++)
@@ -375,19 +380,6 @@ void Engine::update()
 	
 }
 
-glm::vec3 Engine::calcVelocity(const vector<glm::vec3>& points, uint time, float deltaT)
-{
-	if (time >= points.size()) time %= points.size();
-	return ( points[time + 1] - points[time] ) / deltaT;
-}
-
-glm::vec3 Engine::calcAcceleration(const vector<glm::vec3>& points, uint time, float deltaT)
-{
-	if (time >= points.size()) time %= points.size();
-	if (time <= 0) time = 1;
-	return ( points[time + 1] - 2.0f*points[time] + points[time - 1] ) / (deltaT * deltaT);
-}
-
 glm::vec3 Engine::calcSpringForce(const Spring& spring)
 {
 	Particle& p1 = particles[spring.p1];
@@ -395,17 +387,27 @@ glm::vec3 Engine::calcSpringForce(const Spring& spring)
 	
 	glm::vec3 forceDirection = p1.position - p2.position;
 	float distance = glm::distance(p1.position, p2.position);
+
 	forceDirection = glm::normalize(forceDirection);
-	
+	// incase forceDirection is 0, then return
+	if ( abs(forceDirection[0]) >= 0.0 && abs(forceDirection[0]) < EPSILON && 
+		abs(forceDirection[1]) >= 0.0 && abs(forceDirection[1]) < EPSILON &&
+		abs(forceDirection[2]) >= 0.0 && abs(forceDirection[2]) < EPSILON )
+	{
+		return glm::vec3(0, 0, 0);
+	}
+
 	glm::vec3 hooksForce =  forceDirection * (-spring.stiffness * ( distance - spring.restLength));
+	// incase hooksForce is 0, then return
+	if ( abs(hooksForce[0]) >= 0.0 && abs(hooksForce[0]) < EPSILON && 
+		abs(hooksForce[1]) >= 0.0 && abs(hooksForce[1]) < EPSILON &&
+		abs(hooksForce[2]) >= 0.0 && abs(hooksForce[2]) < EPSILON )
+	{
+		return glm::vec3(0, 0, 0);
+	}
+
 	glm::vec3 hooksForceNorm = glm::normalize(hooksForce);
-
 	glm::vec3 dampeningForce = hooksForceNorm * -spring.dampening * ( (p1.velocity - p2.velocity) * hooksForce ); 
-
-
-	// cout << distance << endl;
-	// cout << hooksForce[0] << " " << hooksForce[1] 
-	// 	<< " " << hooksForce[2] << endl;
 
 	return hooksForce + dampeningForce;
 }

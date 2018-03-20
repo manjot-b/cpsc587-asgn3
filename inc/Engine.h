@@ -44,9 +44,10 @@ class Engine
         std::vector<Particle> particles;
         std::vector<float> particlePositions;
 
+        const float EPSILON = 1E-5;
         float deltaT = 0.0001;                               // in miliseconds
         uint updatesPerFrame = (1.0f / 60) / deltaT;
-        glm::vec3 gravityForce = glm::vec3(0, -9.81, 0);
+        glm::vec3 gravityForce = glm::vec3(0, -9.81f, 0);
         float airDampening = 0.000001;
 
         bool initWindow();
@@ -58,7 +59,5 @@ class Engine
         void update();
         void render();        
 
-        glm::vec3 calcVelocity(const std::vector<glm::vec3>& points, uint time, float deltaT);
-        glm::vec3 calcAcceleration(const std::vector<glm::vec3>& points, uint time, float deltaT);
         glm::vec3 calcSpringForce(const Spring& spring);
 };
